@@ -3,6 +3,26 @@ Non ha senso, ma chi sospetterebbe mai di un pollo crittografico?
 
 ---
 
+# Table of Contents
+
+- [Documentation](#documentation)
+    - [Features](#features)
+    - [Algorithm Overview](#what-does-the-algorithm-do)
+        - [Constructor](#constructor)
+        - [Padding](#padding)
+        - [Dynamic S-Box Generation](#dynamic-s-box-generation)
+        - [SubBytes](#subbytes-transformation)
+        - [ShiftRows](#shiftrows-transformation)
+        - [MixColumns](#mixcolumns-transformation)
+        - [Block Encryption and Decryption](#block-encryption-and-decryption)
+        - [Encryption](#encryption-process)
+        - [Decryption](#decryption-process)
+    - [Example Usage](#example-usage)
+        - [Python](#python-10)
+        - [PHP](#php-10)
+
+---
+
 # Documentation
 **CryptoPollo** is a symmetric encryption library implemented in both Python and PHP. It features a custom block encryption algorithm inspired by AES and uses CBC (Cipher Block Chaining) mode. This documentation provides a detailed overview of its design, functionality, and usage, with side-by-side comparisons of the Python and PHP implementations.
 
@@ -311,7 +331,7 @@ private function decryptBlock(array $block, array $invSBox): array {
 
 ---
 
-## Encryption
+## Encryption Process
 The **Encryption** process begins with padding the plaintext to ensure its length is a multiple of the block size. Each plaintext block is XORed with the previous ciphertext block (or IV for the first block), transformed using SubBytes, ShiftRows, and MixColumns, and then appended to the ciphertext. The result includes the IV as a prefix to enable decryption.
 
 #### Python
@@ -356,7 +376,7 @@ public function encrypt(string $plaintext): string {
 
 ---
 
-## Decryption
+## Decryption Process
 The **Decryption** process works in reverse: ciphertext blocks are processed to undo MixColumns, ShiftRows, and SubBytes transformations. Each block is then XORed with the previous ciphertext block (or IV for the first block) to retrieve the original plaintext. Padding is removed at the end to restore the data to its original form.
 
 ### Python
