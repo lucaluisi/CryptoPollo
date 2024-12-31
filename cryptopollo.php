@@ -14,6 +14,9 @@ class CryptoPollo {
         if (strlen($iv) !== $this->blockSize) {
             throw new Exception("IV must be exactly {$this->blockSize} bytes.");
         }
+        if (!is_numeric($numRounds)) {
+            throw new Exception("Number of rounds must be a number.");
+        }
         $this->key = $key;
         $this->iv = $iv;
         $this->numRounds = $numRounds;
