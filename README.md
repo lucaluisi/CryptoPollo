@@ -1,5 +1,5 @@
 # CryptoPollo 🐔
-Non ha senso, ma chi sospetterebbe mai di un pollo crittografico?
+It doesn't make sense, but who would ever suspect a crypto chicken?
 
 ---
 
