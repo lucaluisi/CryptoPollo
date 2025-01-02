@@ -10,6 +10,8 @@ class CryptoPollo:
             raise ValueError(f"Key must be exactly {self.KEY_SIZE} bytes.")
         if len(iv) != self.BLOCK_SIZE:
             raise ValueError(f"IV must be exactly {self.BLOCK_SIZE} bytes.")
+        if not num_rounds.is_integer():
+            raise ValueError("Number of rounds must be an integer.")
         self.key = key
         self.iv = iv
         self.num_rounds = num_rounds

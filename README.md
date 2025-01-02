@@ -96,6 +96,8 @@ class CryptoPollo:
             raise ValueError(f"Key must be exactly {self.KEY_SIZE} bytes.")
         if len(iv) != self.BLOCK_SIZE:
             raise ValueError(f"IV must be exactly {self.BLOCK_SIZE} bytes.")
+        if not num_rounds.is_integer():
+            raise ValueError("Number of rounds must be an integer.")
         self.key = key
         self.iv = iv
         self.num_rounds = num_rounds
@@ -117,6 +119,9 @@ class CryptoPollo {
         if (strlen($iv) !== $this->blockSize) {
             throw new Exception("IV must be exactly {$this->blockSize} bytes.");
         }
+        if (!is_numeric($numRounds)) {
+            throw new Exception("Number of rounds must be a number.");
+        }
         $this->key = $key;
         $this->iv = $iv;
         $this->numRounds = $numRounds;
@@ -126,7 +131,7 @@ class CryptoPollo {
 ---
 
 ## Padding
-CryptoPollo uses PKCS#7-style padding to ensure the plaintext length is a multiple of the block size.
+CryptoPollo uses **PKCS#7-style** padding to ensure the plaintext length is a multiple of the block size.
 
 #### Python
 ```python
@@ -428,7 +433,7 @@ public function decrypt(string $ciphertext): string {
 
 ### Python
 ```python
-from cipher import CryptoPollo
+from cryptopollo import CryptoPollo
 import os
 
 key = os.urandom(CryptoPollo.KEY_SIZE)
@@ -452,7 +457,7 @@ print("Decrypted message:", decrypted_message.decode())
 ```php
 <?php
 
-include('cipher.php');
+include('cryptopollo.php');
 
 $key = random_bytes(16);
 $iv = random_bytes(16);
