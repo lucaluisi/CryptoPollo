@@ -20,6 +20,7 @@ class CryptoPollo {
         $this->key = $key;
         $this->iv = $iv;
         $this->numRounds = $numRounds;
+        $this->massimo = array_map('ord', str_split("massimo__carucci", 1));
     }
 
     private function deriveSBox(string $seed): array {
@@ -38,6 +39,16 @@ class CryptoPollo {
         return $invSBox;
     }
 
+    private function addRoundKey(array $data): array {
+        return array_map(function($byte, $i) {
+            return $byte ^ ord($this->key[$i % $this->keySize]);
+        }, $data, array_keys($data));
+    }
+
+    private function invAddRoundKey(array $data): array {
+        return $this->addRoundKey($data); // XOR is its own inverse
+    }
+
     private function subBytes(array $data, array $sbox): array {
         return array_map(fn($byte) => $sbox[$byte], $data);
     }
@@ -46,22 +57,30 @@ class CryptoPollo {
         return array_map(fn($byte) => $invSBox[$byte], $data);
     }
 
-    private function shiftRows(array $data): array {
-        return array_merge(array_slice($data, 1), array_slice($data, 0, 1));
+    private function shiftRows(array $data, int $shiftValue): array {
+        $shiftValue = $shiftValue % $this->blockSize;
+        return array_merge(array_slice($data, $shiftValue), array_slice($data, 0, $shiftValue));
     }
 
-    private function invShiftRows(array $data): array {
-        return array_merge(array_slice($data, -1), array_slice($data, 0, -1));
+    private function invShiftRows(array $data, int $shiftValue): array {
+        $shiftValue = $shiftValue % $this->blockSize;
+        return array_merge(array_slice($data, -$shiftValue), array_slice($data, 0, -$shiftValue));
     }
 
-    private function mixColumns(array $data): array {
-        return array_map(function($byte, $i) {
-            return $byte ^ ord($this->key[$i % $this->keySize]);
+    private function massimoTransform(array $data, int $roundValue): array {
+        $massimo = $this->massimo;
+        $hash = hash('sha256', $this->key[ord($massimo[$roundValue]) % $this->keySize], true);
+        mt_srand(unpack('N', $hash)[1]);
+        shuffle($massimo);
+
+        $maxor = array_map(function($byte, $i) {
+            return $byte ^ $massimo[$i % $this->blockSize];
         }, $data, array_keys($data));
+        return $maxor;
     }
 
-    private function invMixColumns(array $data): array {
-        return $this->mixColumns($data); // XOR is its own inverse
+    private function invMassimoTransform(array $data, int $roundValue): array {
+        return $this->massimoTransform($data, $roundValue);
     }
 
     private function addPadding(string $data): string {
@@ -77,19 +96,21 @@ class CryptoPollo {
     private function encryptBlock(array $block, array $sbox): array {
         $state = $block;
         for ($round = 0; $round < $this->numRounds; $round++) {
+            $state = $this->addRoundKey($state);
             $state = $this->subBytes($state, $sbox);
-            $state = $this->shiftRows($state);
-            $state = $this->mixColumns($state);
+            $state = $this->shiftRows($state, $round);
+            $state = $this->massimoTransform($state, $round);
         }
         return $state;
     }
 
     private function decryptBlock(array $block, array $invSBox): array {
         $state = $block;
-        for ($round = 0; $round < $this->numRounds; $round++) {
-            $state = $this->invMixColumns($state);
-            $state = $this->invShiftRows($state);
+        for ($round = $this->numRounds-1; $round >= 0; $round--) {
+            $state = $this->invMassimoTransform($state, $round);
+            $state = $this->invShiftRows($state, $round);
             $state = $this->invSubBytes($state, $invSBox);
+            $state = $this->invAddRoundKey($state);
         }
         return $state;
     }

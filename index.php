@@ -47,7 +47,8 @@ try {
             justify-content: center;
             align-items: center;
             height: 100vh;
-            background-color: #f0f0f0;
+            background-image: url('https://www.agrore.it/wp-content/uploads/2022/03/15.png');
+            background-size: 350px;
         }
         main {
             background: white;

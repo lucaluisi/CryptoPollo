@@ -7,19 +7,19 @@ It doesn't make sense, but who would ever suspect a crypto chicken?
 
 - [Documentation](#documentation)
     - [Features](#features)
-    - [Algorithm Overview](#what-does-the-algorithm-do)
+    - [Algorithm Overview](#algorithm-overview)
         - [Constructor](#constructor)
         - [Padding](#padding)
         - [Dynamic S-Box Generation](#dynamic-s-box-generation)
         - [SubBytes](#subbytes-transformation)
-        - [ShiftRows](#shiftrows-transformation)
-        - [MixColumns](#mixcolumns-transformation)
+        - [ShiftRow](#shiftrow-transformation)
+        - [Massimo Transformation](#massimo-transformation)
         - [Block Encryption and Decryption](#block-encryption-and-decryption)
         - [Encryption Process](#encryption-process)
         - [Decryption Process](#decryption-process)
     - [Example Usage](#example-usage)
-        - [Python](#python-10)
-        - [PHP](#php-10)
+        - [Python](#python)
+        - [PHP](#php)
 
 ---
 
@@ -53,9 +53,10 @@ The CryptoPollo algorithm performs the following steps to securely encrypt and d
          1. The plaintext block is XORed with the previous ciphertext block (or the IV for the first block).
          2. A dynamic **S-Box** is derived using the key and the previous ciphertext block (or the IV for the first block).
          3. The block undergoes the following transformations:
+            - **AddRoundKey**: Each byte is XORed with the corresponding byte of the key.
             - **SubBytes**: Each byte in the block is replaced using the derived S-Box.
-            - **ShiftRows**: The block's rows are cyclically shifted to enhance diffusion.
-            - **MixColumns**: Each byte is XORed with the corresponding byte of the key.
+            - **ShiftRow**: The block's rows are cyclically shifted to enhance diffusion.
+            - **MassimoTransform**: Each byte is XORed with the corresponding byte of a shuffled `"massimo__carucci"` string.
          4. The resulting block becomes the next ciphertext block.
 
     - **Concatenate IV and Ciphertext**:<br>
@@ -66,9 +67,10 @@ The CryptoPollo algorithm performs the following steps to securely encrypt and d
         - For each block of ciphertext:
             1. The IV (or the previous ciphertext block) is used to derive the dynamic **S-Box**.
             2. The block undergoes the reverse transformations:
-                - **Inverse MixColumns**
-                - **Inverse ShiftRows**
+                - **Inverse MassimoTransform**
+                - **Inverse ShiftRow**
                 - **Inverse SubBytes**: Each byte is replaced using the inverse S-Box.
+                - **Inverse AddRoundKey**
             3. The result is XORed with the previous ciphertext block (or the IV for the first block) to retrieve the original plaintext.
     - **Remove Padding**:<br>
        After decrypting all blocks, padding is removed from the final plaintext to restore the original data.
@@ -101,6 +103,7 @@ class CryptoPollo:
         self.key = key
         self.iv = iv
         self.num_rounds = num_rounds
+        self.massimo = list("massimo__carucci".encode())
 ```
 
 #### PHP
@@ -125,6 +128,7 @@ class CryptoPollo {
         $this->key = $key;
         $this->iv = $iv;
         $this->numRounds = $numRounds;
+        $this->massimo = array_map('ord', str_split("massimo__carucci", 1));
     }
 ```
 
@@ -199,6 +203,33 @@ private function deriveInvSBox(array $sbox): array {
 
 ---
 
+## AddRoundKey Transformation
+The **AddRoundKey** step in CryptoPollo involves XORing each byte of the block with the corresponding byte of the key. This operation contributes to diffusion and ensures that changes in the key propagate throughout the ciphertext.
+
+#### Python
+```python
+def _add_round_key(self, data: bytes) -> bytes:
+    return [(data[i] ^ self.key[i % len(self.key)]) for i in range(len(data))]
+
+def _inv_add_round_key(self, data: bytes) -> bytes:
+    return self._add_round_key(data) # XOR is its own inverse
+```
+
+#### PHP
+```php
+private function addRoundKey(array $data): array {
+    return array_map(function($byte, $i) {
+        return $byte ^ ord($this->key[$i % $this->keySize]);
+    }, $data, array_keys($data));
+}
+
+private function invAddRoundKey(array $data): array {
+    return $this->addRoundKey($data); // XOR is its own inverse
+}
+```
+
+---
+
 ## SubBytes Transformation
 The **SubBytes** step replaces each byte in the block with a corresponding value from a dynamically derived S-Box. This enhances non-linearity, making the ciphertext less predictable and resistant to linear cryptanalysis.
 
@@ -224,53 +255,69 @@ private function invSubBytes(array $data, array $invSBox): array {
 
 ---
 
-## ShiftRows Transformation
-The **ShiftRows** step cyclically shifts the bytes in the block to different positions. This disrupts the block’s structure, improving diffusion by spreading the influence of each byte across multiple rows.
+## ShiftRow Transformation
+The **ShiftRow** step cyclically shifts the bytes in the block to different positions.
 
 #### Python
 ```python
-def _shift_rows(data: bytes) -> bytes:
-    return data[1:] + data[:1]
+def _shift_row(data: bytes, shift_value: int) -> bytes:
+    shift_value = shift_value % len(data)
+    return data[shift_value:] + data[:shift_value]
 
-def _inv_shift_rows(data: bytes) -> bytes:
-    return data[-1:] + data[:-1]
+def _inv_shift_row(data: bytes, shift_value: int) -> bytes:
+    shift_value = shift_value % len(data)
+    return data[-shift_value:] + data[:-shift_value]
 ```
 
 #### PHP
 ```php
-private function shiftRows(array $data): array {
-    return array_merge(array_slice($data, 1), array_slice($data, 0, 1));
+private function shiftRows(array $data, int $shiftValue): array {
+    $shiftValue = $shiftValue % $this->blockSize;
+    return array_merge(array_slice($data, $shiftValue), array_slice($data, 0, $shiftValue));
 }
 
-private function invShiftRows(array $data): array {
-    return array_merge(array_slice($data, -1), array_slice($data, 0, -1));
+private function invShiftRows(array $data, int $shiftValue): array {
+    $shiftValue = $shiftValue % $this->blockSize;
+    return array_merge(array_slice($data, -$shiftValue), array_slice($data, 0, -$shiftValue));
 }
 ```
 
 ---
 
-## MixColumns Transformation
-The **MixColumns** step in CryptoPollo involves XORing each byte of the block with the corresponding byte of the key. This operation contributes to diffusion and ensures that changes in the key propagate throughout the ciphertext.
+### Massimo Transformation
+The Massimo transformation is a custom transformation that uses a shuffled version of the string `"massimo__carucci"` to XOR with the state.
 
 #### Python
 ```python
-def _mix_columns(self, data: bytes) -> bytes:
-    return [(data[i] ^ self.key[i % len(self.key)]) for i in range(len(data))]
+def _massimo_transform(self, data: bytes, round_value: int) -> bytes:
+    massimo = self.massimo.copy()
+    hash_value = hashlib.sha256(bytes(self.key[massimo[round_value] % self.KEY_SIZE])).digest()
+    random.seed(hash_value)
+    random.shuffle(massimo)
 
-def _inv_mix_columns(self, data: bytes) -> bytes:
-    return self._mix_columns(data) # XOR is its own inverse
+    maxor = [(data[i] ^ massimo[i % self.BLOCK_SIZE]) for i in range(self.BLOCK_SIZE)]
+    return maxor
+
+def _inv_massimo_transform(self, data: bytes, round_value: int) -> bytes:
+    return self._massimo_transform(data, round_value)
 ```
 
 #### PHP
 ```php
-private function mixColumns(array $data): array {
-    return array_map(function($byte, $i) {
-        return $byte ^ ord($this->key[$i % $this->keySize]);
+private function massimoTransform(array $data, int $roundValue): array {
+    $massimo = $this->massimo;
+    $hash = hash('sha256', $this->key[ord($massimo[$roundValue]) % $this->keySize], true);
+    mt_srand(unpack('N', $hash)[1]);
+    shuffle($massimo);
+
+    $maxor = array_map(function($byte, $i) {
+        return $byte ^ $massimo[$i % $this->blockSize];
     }, $data, array_keys($data));
+    return $maxor;
 }
 
-private function invMixColumns(array $data): array {
-    return $this->mixColumns($data); // XOR is its own inverse
+private function invMassimoTransform(array $data, int $roundValue): array {
+    return $this->massimoTransform($data, $roundValue);
 }
 ```
 
@@ -279,16 +326,17 @@ private function invMixColumns(array $data): array {
 ## Block Encryption and Decryption
 
 ### Encryption
-Processes a single block through multiple rounds of SubBytes, ShiftRows, and MixColumns.
+Processes a single block through multiple rounds of AddRoundKey, SubBytes, ShiftRow and MassimoTransform.
 
 #### Python
 ```python
 def _encrypt_block(self, block: bytes, sbox: list) -> bytes:
     state = block[:]
-    for _ in range(self.num_rounds):
+    for r in range(self.num_rounds):
+        state = self._add_round_key(state)
         state = self._sub_bytes(state, sbox)
-        state = self._shift_rows(state)
-        state = self._mix_columns(state)
+        state = self._shift_row(state, r)
+        state = self._massimo_transform(state, r)
     return state
 ```
 
@@ -296,28 +344,30 @@ def _encrypt_block(self, block: bytes, sbox: list) -> bytes:
 ```php
 private function encryptBlock(array $block, array $sbox): array {
     $state = $block;
-    for ($round = 0; $round < $this->numRounds; $round++) {
-        $state = $this->subBytes($state, $sbox);
-        $state = $this->shiftRows($state);
-        $state = $this->mixColumns($state);
-    }
-    return $state;
+        for ($round = 0; $round < $this->numRounds; $round++) {
+            $state = $this->addRoundKey($state);
+            $state = $this->subBytes($state, $sbox);
+            $state = $this->shiftRows($state, $round);
+            $state = $this->massimoTransform($state, $round);
+        }
+        return $state;
 }
 ```
 
 ## 
 
 ### Decryption
-Reverses the transformations (Inverse MixColumns, Inverse ShiftRows, and Inverse SubBytes) for a single block.
+Reverses the transformations (Inverse MassimoTransform, Inverse ShiftRows, Inverse SubBytes and Inverse AddRoundKey) for a single block.
 
 #### Python
 ```python
 def _decrypt_block(self, block: bytes, inv_sbox: list) -> bytes:
     state = block[:]
-    for _ in range(self.num_rounds):
-        state = self._inv_mix_columns(state)
-        state = self._inv_shift_rows(state)
+    for r in range(self.num_rounds-1, -1, -1):
+        state = self._inv_massimo_transform(state, r)
+        state = self._inv_shift_row(state, r)
         state = self._inv_sub_bytes(state, inv_sbox)
+        state = self._inv_add_round_key(state)
     return state
 ```
 
@@ -325,10 +375,11 @@ def _decrypt_block(self, block: bytes, inv_sbox: list) -> bytes:
 ```php
 private function decryptBlock(array $block, array $invSBox): array {
     $state = $block;
-    for ($round = 0; $round < $this->numRounds; $round++) {
-        $state = $this->invMixColumns($state);
-        $state = $this->invShiftRows($state);
+    for ($round = $this->numRounds-1; $round >= 0; $round--) {
+        $state = $this->invMassimoTransform($state, $round);
+        $state = $this->invShiftRows($state, $round);
         $state = $this->invSubBytes($state, $invSBox);
+        $state = $this->invAddRoundKey($state);
     }
     return $state;
 }

@@ -15,6 +15,7 @@ class CryptoPollo:
         self.key = key
         self.iv = iv
         self.num_rounds = num_rounds
+        self.massimo = list("massimo__carucci".encode())
 
     @staticmethod
     def _derive_sbox(seed: bytes) -> list:
@@ -33,6 +34,14 @@ class CryptoPollo:
             inv_sbox[sbox[i]] = i
         return inv_sbox
 
+    def _add_round_key(self, data: bytes) -> bytes:
+        """Mix data using XOR with the key."""
+        return [(data[i] ^ self.key[i % len(self.key)]) for i in range(len(data))]
+
+    def _inv_add_round_key(self, data: bytes) -> bytes:
+        """Inverse mix data using XOR with the key."""
+        return self._add_round_key(data) # XOR is its own inverse
+
     @staticmethod
     def _sub_bytes(data: list, sbox: list) -> list:
         """Apply byte substitution using the S-Box."""
@@ -44,22 +53,30 @@ class CryptoPollo:
         return [inv_sbox[byte] for byte in data]
 
     @staticmethod
-    def _shift_rows(data: bytes) -> bytes:
+    def _shift_row(data: bytes, shift_value: int) -> bytes:
         """Perform row shifting."""
-        return data[1:] + data[:1]
+        shift_value = shift_value % len(data)
+        return data[shift_value:] + data[:shift_value]
 
     @staticmethod
-    def _inv_shift_rows(data: bytes) -> bytes:
+    def _inv_shift_row(data: bytes, shift_value: int) -> bytes:
         """Perform inverse row shifting."""
-        return data[-1:] + data[:-1]
+        shift_value = shift_value % len(data)
+        return data[-shift_value:] + data[:-shift_value]
+    
+    def _massimo_transform(self, data: bytes, round_value: int) -> bytes:
+        """Perform the Massimo transformation."""
+        massimo = self.massimo.copy()
+        hash_value = hashlib.sha256(bytes(self.key[massimo[round_value] % self.KEY_SIZE])).digest()
+        random.seed(hash_value)
+        random.shuffle(massimo)
 
-    def _mix_columns(self, data: bytes) -> bytes:
-        """Mix data using XOR with the key."""
-        return [(data[i] ^ self.key[i % len(self.key)]) for i in range(len(data))]
-
-    def _inv_mix_columns(self, data: bytes) -> bytes:
-        """Inverse mix data using XOR with the key."""
-        return self._mix_columns(data) # XOR is its own inverse
+        maxor = [(data[i] ^ massimo[i % self.BLOCK_SIZE]) for i in range(self.BLOCK_SIZE)]
+        return maxor
+    
+    def _inv_massimo_transform(self, data: bytes, round_value: int) -> bytes:
+        """Perform the inverse Massimo transformation."""
+        return self._massimo_transform(data, round_value)
 
     def _add_padding(self, data: bytes) -> bytes:
         """Add padding to make data a multiple of BLOCK_SIZE."""
@@ -75,19 +92,21 @@ class CryptoPollo:
     def _encrypt_block(self, block: bytes, sbox: list) -> bytes:
         """Encrypt a single block of data."""
         state = block[:]
-        for _ in range(self.num_rounds):
+        for r in range(self.num_rounds):
+            state = self._add_round_key(state)
             state = self._sub_bytes(state, sbox)
-            state = self._shift_rows(state)
-            state = self._mix_columns(state)
+            state = self._shift_row(state, r)
+            state = self._massimo_transform(state, r)
         return state
 
     def _decrypt_block(self, block: bytes, inv_sbox: list) -> bytes:
         """Decrypt a single block of data."""
         state = block[:]
-        for _ in range(self.num_rounds):
-            state = self._inv_mix_columns(state)
-            state = self._inv_shift_rows(state)
+        for r in range(self.num_rounds-1, -1, -1):
+            state = self._inv_massimo_transform(state, r)
+            state = self._inv_shift_row(state, r)
             state = self._inv_sub_bytes(state, inv_sbox)
+            state = self._inv_add_round_key(state)
         return state
 
     def encrypt(self, pt: bytes) -> bytes:
