@@ -7,10 +7,11 @@ It doesn't make sense, but who would ever suspect a crypto chicken?
 
 - [Documentation](#documentation)
     - [Features](#features)
-    - [Algorithm Overview](#algorithm-overview)
+    - [Algorithm Overview](#what-does-the-algorithm-do)
         - [Constructor](#constructor)
         - [Padding](#padding)
         - [Dynamic S-Box Generation](#dynamic-s-box-generation)
+        - [AddRoundKey](#addroundkey-transformation)
         - [SubBytes](#subbytes-transformation)
         - [ShiftRow](#shiftrow-transformation)
         - [Massimo Transformation](#massimo-transformation)
@@ -18,8 +19,8 @@ It doesn't make sense, but who would ever suspect a crypto chicken?
         - [Encryption Process](#encryption-process)
         - [Decryption Process](#decryption-process)
     - [Example Usage](#example-usage)
-        - [Python](#python)
-        - [PHP](#php)
+        - [Python](#python-11)
+        - [PHP](#php-11)
 
 ---
 
@@ -285,7 +286,7 @@ private function invShiftRows(array $data, int $shiftValue): array {
 ---
 
 ### Massimo Transformation
-The Massimo transformation is a custom transformation that uses a shuffled version of the string `"massimo__carucci"` to XOR with the state.
+The **Massimo transformation** is a custom transformation that uses a shuffled version of the string `"massimo__carucci"` to XOR with the state.
 
 #### Python
 ```python
